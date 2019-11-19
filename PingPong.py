@@ -41,9 +41,7 @@ paddle_a.shapesize(stretch_wid=5, stretch_len=1)
 paddle_a.penup()
 paddle_a.goto(-350,0)
 
-
 # In[5]:
-
 
 #paddle B
 paddle_b = turtle.Turtle()
@@ -57,7 +55,6 @@ paddle_b.goto(350,0)
 
 # In[6]:
 
-
 #ball
 ball = turtle.Turtle()
 ball.speed(0)
@@ -70,7 +67,6 @@ ball.dy = -2
 
 
 # In[7]:
-
 
 pen = turtle.Turtle()
 pen.speed(0)
