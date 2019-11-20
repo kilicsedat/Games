@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # # PingPong Game
-# One morning at 6:00 AM, I just did this simple pong game from our childhood for my kids.
+# One morning at 6:00 AM, I just did this simple ping-pong game that reminds me my for my kids.
 
 # In[1]:
 
