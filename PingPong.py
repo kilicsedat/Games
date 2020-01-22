@@ -17,7 +17,7 @@ import os #if you want to use some sound for the game just add your wav sound cl
 wn = turtle.Screen()
 wn.title("Pong")
 wn.bgcolor("black")
-wn.setup(width =600, height=400)
+wn.setup(width =800, height=700)
 wn.tracer(0)
 
 
