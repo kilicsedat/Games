@@ -4,25 +4,14 @@
 # # PingPong Game
 # One morning at 6:00 AM, I just did this simple ping-pong game that reminds me my childhood.
 
-# In[1]:
-
-
 import turtle
 import os #if you want to use some sound for the game just add your wav sound clip where apropriate.
-
-
-# In[2]:
-
 
 wn = turtle.Screen()
 wn.title("Pong")
 wn.bgcolor("black")
 wn.setup(width =900, height=700)
 wn.tracer(0)
-
-
-# In[3]:
-
 
 #Score
 score_a = 0
@@ -51,9 +40,6 @@ paddle_b.color("white")
 paddle_b.shapesize(stretch_wid=5, stretch_len=1)
 paddle_b.penup()
 paddle_b.goto(350,0)
-
-
-# In[6]:
 
 #ball
 ball = turtle.Turtle()
@@ -108,10 +94,6 @@ wn.onkeypress(paddle_a_down, "s")
 wn.onkeypress(paddle_b_up, "Up")
 wn.onkeypress(paddle_b_down, "Down")
 
-
-# In[9]:
-
-
 while True:
     wn.update()
     
@@ -151,4 +133,3 @@ while True:
         ball.setx(-340)
         ball.dx *= -1
         #os.system("afplay thunder.wav&")
-
