@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Word Search!</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Trebuchet MS', sans-serif;
+    background: linear-gradient(160deg, #fff3b0 0%, #ffd6e8 50%, #b8e6ff 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  h1 {
+    text-align: center;
+    color: #ff5da2;
+    font-size: 8vw;
+    margin: 14px 0 8px;
+    text-shadow: 2px 2px 0 #fff;
+  }
+  #categories {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 8px;
+    margin-bottom: 10px;
+  }
+  .cat-btn {
+    background: white;
+    border: 3px solid #b8a6e0;
+    border-radius: 16px;
+    padding: 6px 10px;
+    font-size: 3.4vw;
+    font-weight: bold;
+    color: #6b4fa0;
+  }
+  .cat-btn.active {
+    background: #6b4fa0;
+    border-color: #6b4fa0;
+    color: white;
+  }
+  #status {
+    text-align: center;
+    font-size: 4.5vw;
+    color: #6b4fa0;
+    margin-bottom: 8px;
+    min-height: 24px;
+    font-weight: bold;
+  }
+  #wordlist {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 10px;
+    margin-bottom: 12px;
+  }
+  .word-chip {
+    background: white;
+    border: 3px solid #6b4fa0;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-weight: bold;
+    font-size: 4.5vw;
+    color: #6b4fa0;
+    transition: all 0.3s;
+  }
+  .word-chip.found {
+    background: #7ee787;
+    border-color: #2ea043;
+    color: white;
+    text-decoration: line-through;
+  }
+  #board-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 0 6px;
+  }
+  #board {
+    display: grid;
+    gap: 3px;
+    background: #6b4fa0;
+    padding: 6px;
+    border-radius: 16px;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+    touch-action: none;
+    width: min(94vw, 420px);
+  }
+  .cell {
+    background: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #444;
+    touch-action: none;
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    overflow: hidden;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+  .cell.selecting {
+    background: #ffe066;
+    color: #333;
+  }
+  .cell.found {
+    background: #7ee787;
+    color: white;
+  }
+  #celebrate {
+    text-align: center;
+    font-size: 8vw;
+    margin-top: 16px;
+    display: none;
+  }
+  #newgame {
+    display: block;
+    margin: 20px auto;
+    padding: 12px 28px;
+    font-size: 5vw;
+    background: #ff5da2;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-weight: bold;
+    box-shadow: 0 4px 0 #c23d78;
+  }
+  #newgame:active { box-shadow: none; transform: translateY(4px); }
+</style>
+</head>
+<body>
+
+<h1>🔤 Word Search for Neva!</h1>
+<div id="categories"></div>
+<div id="status">Drag your finger across the letters!</div>
+<div id="wordlist"></div>
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+<div id="celebrate">🎉 Babasinin Gulu! You found them all! 🎉</div>
+<button id="newgame">New Puzzle Bal</button>
+
+<script>
+const CATEGORIES = {
+  "Early K": ["a","I","we","see","look","at","the","like","can","my","you","he","she","go","is","and","to"],
+  "Mid-Late K": ["so","do","an","am","on","no","it","in","up","are","for","me","come","yes","play"],
+  "Early 1st": ["that","then","if","but","as","of","them","with","will","all","her","us","did","get","was","his","from","be"],
+  "Mid-Late 1st": ["they","back","each","first","want","this","have","jump","little","went","by","what","were","when","your","going","called","has","boy","girl","him","said","there","put","or","more","other","here","now","down","out","about","make","made","came","time","write","read","saw","one","use","some","away","may","day","way","eat","because","been","than","too","two","who","find","very","many","off"]
+};
+
+// dedupe + uppercase + drop 1-letter words (too trivial for a search game)
+Object.keys(CATEGORIES).forEach(k => {
+  const seen = new Set();
+  CATEGORIES[k] = CATEGORIES[k]
+    .map(w => w.toUpperCase())
+    .filter(w => w.length >= 2 && !seen.has(w) && seen.add(w));
+});
+
+const WORDS_PER_PUZZLE = 5;
+const DIRS = [
+  [0,1],[0,-1],[1,0],[-1,0],
+  [1,1],[1,-1],[-1,1],[-1,-1]
+];
+
+let currentCategory = "Early K";
+let WORDS = [];
+let SIZE = 8;
+let grid, foundWords, cellEls;
+
+function pickRandomWords(category) {
+  const pool = [...CATEGORIES[category]];
+  const chosen = [];
+  const count = Math.min(WORDS_PER_PUZZLE, pool.length);
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(Math.random()*pool.length);
+    chosen.push(pool.splice(idx,1)[0]);
+  }
+  return chosen;
+}
+
+function computeSize(words) {
+  const longest = Math.max(...words.map(w => w.length));
+  return Math.min(12, Math.max(8, longest + 2));
+}
+
+function emptyGrid() {
+  return Array.from({length: SIZE}, () => Array(SIZE).fill(null));
+}
+
+function tryPlaceWord(g, word) {
+  const attempts = 300;
+  for (let a = 0; a < attempts; a++) {
+    const dir = DIRS[Math.floor(Math.random()*DIRS.length)];
+    const row = Math.floor(Math.random()*SIZE);
+    const col = Math.floor(Math.random()*SIZE);
+    const endRow = row + dir[0]*(word.length-1);
+    const endCol = col + dir[1]*(word.length-1);
+    if (endRow < 0 || endRow >= SIZE || endCol < 0 || endCol >= SIZE) continue;
+
+    let ok = true;
+    for (let i = 0; i < word.length; i++) {
+      const r = row + dir[0]*i;
+      const c = col + dir[1]*i;
+      const existing = g[r][c];
+      if (existing !== null && existing !== word[i]) { ok = false; break; }
+    }
+    if (!ok) continue;
+
+    for (let i = 0; i < word.length; i++) {
+      const r = row + dir[0]*i;
+      const c = col + dir[1]*i;
+      g[r][c] = word[i];
+    }
+    return {word, row, col, dir};
+  }
+  return null;
+}
+
+function buildPuzzle() {
+  const g = emptyGrid();
+  const placed = [];
+  const sorted = [...WORDS].sort((a,b) => b.length - a.length);
+  for (const w of sorted) {
+    const p = tryPlaceWord(g, w);
+    if (p) placed.push(p);
+  }
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (g[r][c] === null) {
+        g[r][c] = letters[Math.floor(Math.random()*letters.length)];
+      }
+    }
+  }
+  return {g, placed};
+}
+
+function cellKey(r,c) { return r + "_" + c; }
+
+function renderCategoryButtons() {
+  const wrap = document.getElementById("categories");
+  wrap.innerHTML = "";
+  Object.keys(CATEGORIES).forEach(cat => {
+    const btn = document.createElement("button");
+    btn.className = "cat-btn" + (cat === currentCategory ? " active" : "");
+    btn.textContent = cat;
+    btn.addEventListener("click", () => {
+      currentCategory = cat;
+      newGame();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function renderWordList() {
+  const wl = document.getElementById("wordlist");
+  wl.innerHTML = "";
+  WORDS.forEach(w => {
+    const chip = document.createElement("div");
+    chip.className = "word-chip";
+    chip.id = "chip-" + w;
+    chip.textContent = w;
+    wl.appendChild(chip);
+  });
+}
+
+function renderBoard() {
+  const board = document.getElementById("board");
+  board.style.gridTemplateColumns = `repeat(${SIZE}, 1fr)`;
+  board.innerHTML = "";
+  cellEls = {};
+  const boardPx = Math.min(window.innerWidth * 0.94, 420) - 12 - (SIZE - 1) * 3;
+  const cellPx = boardPx / SIZE;
+  const fontPx = Math.max(10, Math.min(cellPx * 0.55, 30));
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const div = document.createElement("div");
+      div.className = "cell";
+      div.textContent = grid[r][c];
+      div.dataset.r = r;
+      div.dataset.c = c;
+      div.style.fontSize = fontPx + "px";
+      board.appendChild(div);
+      cellEls[cellKey(r,c)] = div;
+    }
+  }
+}
+
+let selecting = false;
+let startCell = null;
+let currentPath = [];
+
+function getCellFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (el && el.classList.contains("cell")) return el;
+  return null;
+}
+
+function pathBetween(r1,c1,r2,c2) {
+  const dr = r2-r1, dc = c2-c1;
+  const steps = Math.max(Math.abs(dr), Math.abs(dc));
+  if (steps === 0) return [[r1,c1]];
+  const stepR = dr === 0 ? 0 : dr/Math.abs(dr);
+  const stepC = dc === 0 ? 0 : dc/Math.abs(dc);
+  if (Math.abs(dr) !== 0 && Math.abs(dc) !== 0 && Math.abs(dr) !== Math.abs(dc)) return null;
+  const path = [];
+  for (let i=0;i<=steps;i++) path.push([r1+stepR*i, c1+stepC*i]);
+  return path;
+}
+
+function clearSelectingClass() {
+  currentPath.forEach(([r,c]) => {
+    const el = cellEls[cellKey(r,c)];
+    if (el && !el.classList.contains("found")) el.classList.remove("selecting");
+  });
+}
+
+function applySelectingClass(path) {
+  path.forEach(([r,c]) => {
+    const el = cellEls[cellKey(r,c)];
+    if (el && !el.classList.contains("found")) el.classList.add("selecting");
+  });
+}
+
+function wordAtPath(path) {
+  const letters = path.map(([r,c]) => grid[r][c]).join("");
+  const rev = letters.split("").reverse().join("");
+  return WORDS.find(w => w === letters || w === rev);
+}
+
+function markFound(word, path) {
+  path.forEach(([r,c]) => {
+    const el = cellEls[cellKey(r,c)];
+    el.classList.remove("selecting");
+    el.classList.add("found");
+  });
+  const chip = document.getElementById("chip-" + word);
+  if (chip) chip.classList.add("found");
+  foundWords.add(word);
+  updateStatus();
+}
+
+function updateStatus() {
+  const status = document.getElementById("status");
+  if (foundWords.size === WORDS.length) {
+    status.textContent = "";
+    document.getElementById("celebrate").style.display = "block";
+  } else {
+    status.textContent = `Found ${foundWords.size} of ${WORDS.length} words!`;
+  }
+}
+
+function onStart(x, y) {
+  const el = getCellFromPoint(x,y);
+  if (!el) return;
+  selecting = true;
+  startCell = {r: parseInt(el.dataset.r), c: parseInt(el.dataset.c)};
+  currentPath = [[startCell.r, startCell.c]];
+  applySelectingClass(currentPath);
+}
+
+function onMove(x, y) {
+  if (!selecting) return;
+  const el = getCellFromPoint(x,y);
+  if (!el) return;
+  const r = parseInt(el.dataset.r), c = parseInt(el.dataset.c);
+  const path = pathBetween(startCell.r, startCell.c, r, c);
+  if (!path) return;
+  clearSelectingClass();
+  currentPath = path;
+  applySelectingClass(currentPath);
+}
+
+function onEnd() {
+  if (!selecting) return;
+  selecting = false;
+  const word = wordAtPath(currentPath);
+  if (word && !foundWords.has(word)) {
+    markFound(word, currentPath);
+  } else {
+    clearSelectingClass();
+  }
+  currentPath = [];
+}
+
+function attachEvents() {
+  const board = document.getElementById("board");
+  board.addEventListener("pointerdown", e => { onStart(e.clientX, e.clientY); e.preventDefault(); });
+  board.addEventListener("pointermove", e => { onMove(e.clientX, e.clientY); e.preventDefault(); });
+  window.addEventListener("pointerup", e => { onEnd(); });
+  board.addEventListener("touchstart", e => { const t = e.touches[0]; onStart(t.clientX, t.clientY); e.preventDefault(); }, {passive:false});
+  board.addEventListener("touchmove", e => { const t = e.touches[0]; onMove(t.clientX, t.clientY); e.preventDefault(); }, {passive:false});
+  board.addEventListener("touchend", e => { onEnd(); e.preventDefault(); }, {passive:false});
+}
+
+function newGame() {
+  document.getElementById("celebrate").style.display = "none";
+  foundWords = new Set();
+  WORDS = pickRandomWords(currentCategory);
+  SIZE = computeSize(WORDS);
+  const puzzle = buildPuzzle();
+  grid = puzzle.g;
+  renderCategoryButtons();
+  renderWordList();
+  renderBoard();
+  updateStatus();
+}
+
+document.getElementById("newgame").addEventListener("click", newGame);
+attachEvents();
+newGame();
+</script>
+
+</body>
+</html>
