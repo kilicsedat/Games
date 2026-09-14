@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Sentry</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sentry">
+<meta name="theme-color" content="#0B0E0D">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230B0E0D'/%3E%3Ccircle cx='50' cy='50' r='28' fill='none' stroke='%233FE0A5' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%233FE0A5'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0B0E0D;
+    --panel:#121815;
+    --line:#223028;
+    --text:#E7F3EC;
+    --dim:#7C9187;
+    --calm:#3FE0A5;
+    --alert:#FF5D45;
+    --alert-dim:#3A1712;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overflow:hidden;
+  }
+
+  header{
+    padding:22px 20px 14px;
+    flex-shrink:0;
+  }
+  .brand{
+    font-size:15px;
+    letter-spacing:0.02em;
+    color:var(--dim);
+    margin:0 0 2px;
+  }
+  h1{
+    margin:0;
+    font-size:26px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+
+  .stage{
+    position:relative;
+    margin:6px 16px;
+    border-radius:18px;
+    overflow:hidden;
+    background:#000;
+    border:1px solid var(--line);
+    aspect-ratio:3/4;
+    flex-shrink:0;
+  }
+  video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+    transform:scaleX(-1);
+  }
+  video.rear{ transform:none; }
+  .stage.idle video{ opacity:0.55; }
+
+  .ring{
+    position:absolute;
+    inset:0;
+    border-radius:18px;
+    border:3px solid transparent;
+    transition:border-color 180ms ease, box-shadow 180ms ease;
+    pointer-events:none;
+  }
+  .stage.armed .ring{ border-color:rgba(63,224,165,0.35); }
+  .stage.tripped .ring{
+    border-color:var(--alert);
+    box-shadow:0 0 0 6px rgba(255,93,69,0.14) inset;
+  }
+
+  .readout{
+    position:absolute;
+    left:12px;
+    bottom:12px;
+    right:12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:13px;
+    color:var(--dim);
+    background:rgba(11,14,13,0.55);
+    backdrop-filter:blur(6px);
+    padding:8px 10px;
+    border-radius:10px;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--dim);
+    display:inline-block;
+    margin-right:6px;
+    flex-shrink:0;
+  }
+  .stage.armed .dot{ background:var(--calm); }
+  .stage.tripped .dot{ background:var(--alert); }
+  .state-label{ display:flex; align-items:center; color:var(--text); }
+
+  main{
+    flex:1;
+    overflow-y:auto;
+    padding:18px 20px 28px;
+  }
+
+  .primary{
+    width:100%;
+    padding:16px;
+    border-radius:14px;
+    border:none;
+    font-size:17px;
+    font-weight:600;
+    background:var(--calm);
+    color:#06231A;
+    margin-bottom:18px;
+  }
+  .primary:active{ opacity:0.85; }
+  .primary.stop{ background:var(--alert); color:#2B0A05; }
+
+  .field{
+    margin-bottom:18px;
+  }
+  .field label{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    color:var(--dim);
+    margin-bottom:8px;
+  }
+  .field label span:last-child{ color:var(--text); }
+  input[type=range]{
+    width:100%;
+    accent-color:var(--calm);
+  }
+  input[type=text]{
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:12px;
+    border-radius:10px;
+    font-size:15px;
+  }
+  select{
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:12px;
+    border-radius:10px;
+    font-size:15px;
+  }
+
+  .log-title{
+    font-size:13px;
+    color:var(--dim);
+    margin:22px 0 8px;
+  }
+  .log{
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .log-row{
+    padding:10px 12px;
+    font-size:13px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    color:var(--dim);
+  }
+  .log-row:last-child{ border-bottom:none; }
+  .log-row span:first-child{ color:var(--text); }
+  .log-empty{
+    padding:16px 12px;
+    font-size:13px;
+    color:var(--dim);
+    text-align:center;
+  }
+
+  .note{
+    margin-top:20px;
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--dim);
+  }
+  .note b{ color:var(--text); font-weight:600; }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="brand">Sentry</p>
+  <h1 id="title">Watching for movement</h1>
+</header>
+
+<div class="stage idle" id="stage">
+  <video id="video" playsinline muted autoplay></video>
+  <div class="ring"></div>
+  <div class="readout">
+    <span class="state-label"><span class="dot"></span><span id="stateText">Camera off</span></span>
+    <span id="metric">—</span>
+  </div>
+</div>
+
+<main>
+  <button class="primary" id="toggleBtn">Start watching</button>
+
+  <div class="field">
+    <label><span>Camera</span></label>
+    <select id="facing">
+      <option value="environment">Back camera</option>
+      <option value="user">Front camera</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label><span>Sensitivity</span><span id="sensVal">Medium</span></label>
+    <input type="range" id="sensitivity" min="1" max="9" value="5">
+  </div>
+
+  <div class="field">
+    <label><span>What it says</span></label>
+    <input type="text" id="phrase" value="Movement detected.">
+  </div>
+
+  <div class="field">
+    <label><span>Wait between alerts</span><span id="cooldownVal">6s</span></label>
+    <input type="range" id="cooldown" min="2" max="30" value="6">
+  </div>
+
+  <p class="log-title">Recent activity</p>
+  <div class="log" id="log">
+    <div class="log-empty" id="logEmpty">Nothing yet</div>
+  </div>
+
+  <p class="note">
+    <b>Keep this tab open.</b> Phone browsers stop the camera when the screen locks or the app goes to the background, so this only works while Sentry is on screen. For camera access to work at all, it needs to be opened over <b>https://</b> (or from an installed home-screen icon) — a plain local file won't be allowed to use the camera.
+  </p>
+</main>
+
+<script>
+(function(){
+  const video = document.getElementById('video');
+  const stage = document.getElementById('stage');
+  const stateText = document.getElementById('stateText');
+  const metric = document.getElementById('metric');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const sensitivity = document.getElementById('sensitivity');
+  const sensVal = document.getElementById('sensVal');
+  const cooldown = document.getElementById('cooldown');
+  const cooldownVal = document.getElementById('cooldownVal');
+  const phrase = document.getElementById('phrase');
+  const facing = document.getElementById('facing');
+  const log = document.getElementById('log');
+  const logEmpty = document.getElementById('logEmpty');
+
+  const SENS_LABELS = {1:'Lowest',2:'Very low',3:'Low',4:'Low-ish',5:'Medium',6:'Medium-high',7:'High',8:'Very high',9:'Highest'};
+
+  let stream = null;
+  let running = false;
+  let wakeLock = null;
+  let canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const SAMPLE_W = 96, SAMPLE_H = 128;
+  canvas.width = SAMPLE_W;
+  canvas.height = SAMPLE_H;
+  let prevFrame = null;
+  let lastSpokenAt = 0;
+  let loopHandle = null;
+
+  sensitivity.addEventListener('input', () => { sensVal.textContent = SENS_LABELS[sensitivity.value]; });
+  cooldown.addEventListener('input', () => { cooldownVal.textContent = cooldown.value + 's'; });
+
+  function addLogEntry(text){
+    logEmpty.remove();
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    row.innerHTML = '<span>' + text + '</span><span>' + time + '</span>';
+    log.prepend(row);
+    while(log.children.length > 8){ log.removeChild(log.lastChild); }
+  }
+
+  function speak(text){
+    if(!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.0;
+    window.speechSynthesis.speak(u);
+  }
+
+  async function requestWakeLock(){
+    try{
+      if('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    }catch(e){ /* not fatal */ }
+  }
+
+  function releaseWakeLock(){
+    if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+  }
+
+  async function start(){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing.value },
+        audio: false
+      });
+    }catch(e){
+      alert('Could not access the camera: ' + e.message);
+      return;
+    }
+    video.srcObject = stream;
+    video.classList.toggle('rear', facing.value === 'environment');
+    await video.play();
+    running = true;
+    prevFrame = null;
+    toggleBtn.textContent = 'Stop watching';
+    toggleBtn.classList.add('stop');
+    document.getElementById('title').textContent = 'Sentry is armed';
+    stage.classList.remove('idle');
+    stage.classList.add('armed');
+    stateText.textContent = 'Armed';
+    addLogEntry('Started watching');
+    requestWakeLock();
+    tick();
+  }
+
+  function stop(){
+    running = false;
+    if(loopHandle) cancelAnimationFrame(loopHandle);
+    if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+    releaseWakeLock();
+    toggleBtn.textContent = 'Start watching';
+    toggleBtn.classList.remove('stop');
+    document.getElementById('title').textContent = 'Watching for movement';
+    stage.classList.remove('armed','tripped');
+    stage.classList.add('idle');
+    stateText.textContent = 'Camera off';
+    metric.textContent = '—';
+    addLogEntry('Stopped watching');
+  }
+
+  function tick(){
+    if(!running) return;
+    if(video.readyState >= 2){
+      ctx.drawImage(video, 0, 0, SAMPLE_W, SAMPLE_H);
+      const frame = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
+
+      if(prevFrame){
+        let changed = 0;
+        const total = SAMPLE_W * SAMPLE_H;
+        for(let i = 0; i < frame.length; i += 4){
+          const dr = Math.abs(frame[i] - prevFrame[i]);
+          const dg = Math.abs(frame[i+1] - prevFrame[i+1]);
+          const db = Math.abs(frame[i+2] - prevFrame[i+2]);
+          if((dr + dg + db) > 90) changed++;
+        }
+        const pct = (changed / total) * 100;
+        metric.textContent = pct.toFixed(1) + '%';
+
+        const threshold = 11 - Number(sensitivity.value); // higher sensitivity -> lower threshold
+        const now = Date.now();
+        if(pct > threshold){
+          stage.classList.add('tripped');
+          stateText.textContent = 'Movement';
+          const cooldownMs = Number(cooldown.value) * 1000;
+          if(now - lastSpokenAt > cooldownMs){
+            lastSpokenAt = now;
+            speak(phrase.value || 'Movement detected.');
+            addLogEntry('Movement — spoke alert');
+          }
+        } else {
+          stage.classList.remove('tripped');
+          stateText.textContent = 'Armed';
+        }
+      }
+      prevFrame = frame;
+    }
+    loopHandle = requestAnimationFrame(tick);
+  }
+
+  toggleBtn.addEventListener('click', () => { running ? stop() : start(); });
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && running) requestWakeLock();
+  });
+
+  sensVal.textContent = SENS_LABELS[sensitivity.value];
+  cooldownVal.textContent = cooldown.value + 's';
+})();
+</script>
+</body>
+</html>
